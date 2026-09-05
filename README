@@ -1,1 +1,11 @@
-### learning xv6
+Lab 1 — xv6 and Unix Utilities
+
+Focus: xv6 fundamentals, C, system calls, processes, file descriptors, pointers, and Unix-style utilities.
+
+Completed
+Boot xv6 — Built and ran xv6 on RISC-V using QEMU; explored the xv6 shell, processes, and filesystem.
+sleep — Implemented a user-level sleep program using command-line arguments, atoi(), and the pause() system call.
+sixfive — Implemented a text-processing utility using open(), read(), C strings, and character parsing.
+memdump — Implemented memory inspection using C pointers and interpreted raw memory according to a format string.
+find — Implemented recursive directory traversal using open(), read(), fstat(), and C string operations.
+find -exec — Extended find to execute a command for each matching file using fork(), exec(), and wait().
