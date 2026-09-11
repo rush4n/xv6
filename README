@@ -1,11 +1,46 @@
-Lab 1 — xv6 and Unix Utilities
+NOTE: This is the x86-64 version of xv6.
+https://gitlab.com/xv6-64/xv6-64 and https://xv6-64.gitlab.io/xv6-64
 
-Focus: xv6 fundamentals, C, system calls, processes, file descriptors, pointers, and Unix-style utilities.
+xv6 is a reimplementation of Dennis Ritchie's and Ken Thompson's Unix
+Version 6 (v6). xv6 loosely follows the structure and style of v6,
+but is implemented for a modern x86-64-based multiprocessor using ANSI C.
 
-Completed
-Boot xv6 — Built and ran xv6 on RISC-V using QEMU; explored the xv6 shell, processes, and filesystem.
-sleep — Implemented a user-level sleep program using command-line arguments, atoi(), and the pause() system call.
-sixfive — Implemented a text-processing utility using open(), read(), C strings, and character parsing.
-memdump — Implemented memory inspection using C pointers and interpreted raw memory according to a format string.
-find — Implemented recursive directory traversal using open(), read(), fstat(), and C string operations.
-find -exec — Extended find to execute a command for each matching file using fork(), exec(), and wait().
+ACKNOWLEDGMENTS
+
+The 64-bit conversion of xv6 was done by Leon Gall as part of a master's 
+internship supervised by Pierre David at the Icube research laboratory
+at the University of Strasbourg, France.
+
+This version is based on the original 32-bit xv6, with minimum changes 
+required to be compatible with the x86-64 architecture.
+
+This version is also inspired by the existing conversions written 
+by Jim Huang, Brian Swetland and Naohisa Murakami 
+(https://github.com/jserv/xv6-x86_64 and 
+https://github.com/tiqwab/xv6-x86_64).
+
+xv6-64 borrows code from the following sources:
+    Jserv (acpi.c, acpi.h)
+
+ERROR REPORTS
+
+In case of bugs or errors, you can file a git issue at 
+https://gitlab.com/xv6-64/xv6-64/-/issues/new.
+
+BUILDING AND RUNNING XV6-64
+
+To build xv6 on an x86-64 ELF machine (like Linux or FreeBSD), run
+"make". On non-x86-64 or non-ELF machines (like OS X, even on x86-64), you
+will need to install a cross-compiler gcc suite capable of producing
+x86-64 ELF binaries, such as x86_64-elf-gcc. Then run 
+"make TOOLPREFIX=x86_64-elf-". 
+Now install the QEMU PC simulator and run "make qemu", or 
+"make qemu-nox" to run xv6 directly in the current terminal.
+
+ORIGINAL XV6 VERSION
+
+The x86 version of xv6 can be found at 
+https://github.com/mit-pdos/xv6-public.git.
+
+The original 32-bit xv6 foreword and acknowledgments are
+in the README.orig file.

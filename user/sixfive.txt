@@ -1,9 +1,0 @@
-5
-3
-127
-100
-18-4
-06
-xv6
-100/360/t/t
-Rushan is working on xv6 but he is on 20 years old

@@ -1,122 +1,87 @@
-
-# To compile and run with a lab solution, set the lab name in conf/lab.mk
-# (e.g., LAB=util).  Run make grade to test solution with the lab's
-# grade script (e.g., grade-lab-util).
-
--include conf/lab.mk
-
-K=kernel
-U=user
-
 OBJS = \
-  $K/entry.o \
-  $K/kalloc.o \
-  $K/string.o \
-  $K/main.o \
-  $K/vm.o \
-  $K/proc.o \
-  $K/swtch.o \
-  $K/trampoline.o \
-  $K/trap.o \
-  $K/syscall.o \
-  $K/sysproc.o \
-  $K/bio.o \
-  $K/fs.o \
-  $K/log.o \
-  $K/sleeplock.o \
-  $K/file.o \
-  $K/pipe.o \
-  $K/exec.o \
-  $K/sysfile.o \
-  $K/kernelvec.o \
-  $K/plic.o \
-  $K/virtio_disk.o
+	bio.o\
+	console.o\
+	exec.o\
+	file.o\
+	fs.o\
+	ide.o\
+	ioapic.o\
+	kalloc.o\
+	kbd.o\
+	lapic.o\
+	log.o\
+	main.o\
+	mp.o\
+	picirq.o\
+	pipe.o\
+	proc.o\
+	sleeplock.o\
+	spinlock.o\
+	string.o\
+	swtch.o\
+	syscall.o\
+	sysfile.o\
+	sysproc.o\
+	trapasm.o\
+	trap.o\
+	uart.o\
+	vectors.o\
+	vm.o\
+	acpi.o\
 
-OBJS_KCSAN = \
-  $K/start.o \
-  $K/console.o \
-  $K/printf.o \
-  $K/uart.o \
-  $K/spinlock.o
+# Cross-compiling (e.g., on Mac OS X)
+# TOOLPREFIX = x86_64-elf-
 
-ifdef KCSAN
-OBJS_KCSAN += \
-	$K/kcsan.o
-endif
-
-ifeq ($(LAB),lock)
-OBJS += \
-	$K/stats.o\
-	$K/sprintf.o
-endif
-
-
-ifeq ($(LAB),net)
-OBJS += \
-	$K/e1000.o \
-	$K/net.o \
-	$K/pci.o
-endif
-
-
-# riscv64-unknown-elf- or riscv64-linux-gnu-
-# perhaps in /opt/riscv/bin
+# Using native tools (e.g., on X86-64 Linux)
 #TOOLPREFIX = 
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX
-TOOLPREFIX := $(shell if riscv64-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
-	then echo 'riscv64-unknown-elf-'; \
-	elif riscv64-elf-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
-	then echo 'riscv64-elf-'; \
-	elif riscv64-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
-	then echo 'riscv64-linux-gnu-'; \
-	elif riscv64-unknown-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
-	then echo 'riscv64-unknown-linux-gnu-'; \
+TOOLPREFIX := $(shell if x86_64-elf-objdump -i 2>&1 | grep '^elf64-x86-64' >/dev/null 2>&1; \
+	then echo 'x86_64-elf-'; \
+	elif objdump -i 2>&1 | grep 'elf64-x86-64' >/dev/null 2>&1; \
+	then echo ''; \
 	else echo "***" 1>&2; \
-	echo "*** Error: Couldn't find a riscv64 version of GCC/binutils." 1>&2; \
+	echo "*** Error: Couldn't find an x86_64-elf version of GCC/binutils." 1>&2; \
+	echo "*** Is the directory with x86_64-elf-gcc in your PATH?" 1>&2; \
+	echo "*** If your x86_64-elf toolchain is installed with a command" 1>&2; \
+	echo "*** prefix other than 'x86_64-elf-', set your TOOLPREFIX" 1>&2; \
+	echo "*** environment variable to that prefix and run 'make' again." 1>&2; \
 	echo "*** To turn off this error, run 'gmake TOOLPREFIX= ...'." 1>&2; \
 	echo "***" 1>&2; exit 1; fi)
 endif
 
-QEMU = qemu-system-riscv64
-MIN_QEMU_VERSION = 7.2
+# If the makefile can't find QEMU, specify its path here
+# QEMU = qemu-system-x86_64
+
+# Try to infer the correct QEMU
+ifndef QEMU
+QEMU := $(shell if which qemu > /dev/null; \
+	then echo qemu; \
+	elif which qemu-system-x86_64 > /dev/null; \
+	then echo qemu-system-x86_64; \
+	else \
+	echo "***" 1>&2; \
+	echo "*** Error: Couldn't find a working QEMU executable." 1>&2; \
+	echo "*** Is the directory containing the qemu binary in your PATH" 1>&2; \
+	echo "*** or have you tried setting the QEMU variable in Makefile?" 1>&2; \
+	echo "***" 1>&2; fi)
+endif
 
 CC = $(TOOLPREFIX)gcc
 AS = $(TOOLPREFIX)gas
 LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
-
-CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb -gdwarf-2
-
-ifdef LAB
-LABUPPER = $(shell echo $(LAB) | tr a-z A-Z)
-XCFLAGS += -DSOL_$(LABUPPER) -DLAB_$(LABUPPER)
-endif
-
-CFLAGS += $(XCFLAGS)
-CFLAGS += -MD
-CFLAGS += -mcmodel=medany
-CFLAGS += -ffreestanding
-CFLAGS += -fno-common -nostdlib
-CFLAGS += -fno-builtin-strncpy -fno-builtin-strncmp -fno-builtin-strlen -fno-builtin-memset
-CFLAGS += -fno-builtin-memmove -fno-builtin-memcmp -fno-builtin-log -fno-builtin-bzero
-CFLAGS += -fno-builtin-strchr -fno-builtin-exit -fno-builtin-malloc -fno-builtin-putc
-CFLAGS += -fno-builtin-free
-CFLAGS += -fno-builtin-memcpy -Wno-main
-CFLAGS += -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf
-CFLAGS += -I.
+CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -Og -Wno-infinite-recursion -Wall -MD -ggdb -Werror -fno-omit-frame-pointer 
+# This flag disables default optimizations or features that are enabled by default.
+# In particular, it disables SIMD optimizations. Cleaner than:
+# CFLAGS += -mno-mmx -mno-sse -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4 -mno-sse4a -mno-sse4.1 -mno-sse4.2 -mfpmath=387
+CFLAGS += -mno-default
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
-
-ifeq ($(LAB),net)
-CFLAGS += -DNET_TESTS_PORT=$(SERVERPORT)
-endif
-
-ifdef KCSAN
-CFLAGS += -DKCSAN
-KCSANFLAG = -fsanitize=thread -fno-inline
-endif
+ASFLAGS = -gdwarf-2 -Wa,-divide
+# LDFLAGS := --no-warn-rwx-segments
+LDFLAGS := -z max-page-size=0x1000
 
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
@@ -126,48 +91,76 @@ ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]nopie'),)
 CFLAGS += -fno-pie -nopie
 endif
 
-LDFLAGS = -z max-page-size=4096
+$(OBJS): CFLAGS += -m64 -mcmodel=large -DX86_64
 
-$K/kernel: $(OBJS) $(OBJS_KCSAN) $K/kernel.ld
-	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) $(OBJS_KCSAN)
-	$(OBJDUMP) -S $K/kernel > $K/kernel.asm
-	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
-$(OBJS): EXTRAFLAG := $(KCSANFLAG)
+xv6.img: bootblock kernel
+	dd if=/dev/zero of=xv6.img count=10000
+	dd if=bootblock of=xv6.img conv=notrunc
+	dd if=kernel of=xv6.img seek=1 conv=notrunc
 
-$K/%.o: $K/%.c
-	$(CC) $(CFLAGS) $(EXTRAFLAG) -c -o $@ $<
+xv6memfs.img: bootblock kernelmemfs
+	dd if=/dev/zero of=xv6memfs.img count=10000
+	dd if=bootblock of=xv6memfs.img conv=notrunc
+	dd if=kernelmemfs of=xv6memfs.img seek=1 conv=notrunc
 
-$K/%.o: $K/%.S
-	$(CC) -g -c -o $@ $<
+bootblock: bootasm.S bootmain.c
+	$(CC) $(CFLAGS) -m32 -fno-pic -O -nostdinc -I. -c bootmain.c
+	$(CC) $(CFLAGS) -m32 -fno-pic -nostdinc -I. -c bootasm.S
+	$(LD) $(LDFLAGS) -m elf_i386 -N -e start -Ttext 0x7C00 -o bootblock.o bootasm.o bootmain.o
+	$(OBJDUMP) -S bootblock.o > bootblock.asm
+	$(OBJCOPY) -S -O binary -j .text bootblock.o bootblock
+	./sign.pl bootblock
 
-tags: $(OBJS)
-	etags kernel/*.S kernel/*.c
+entryother: entryother.S
+	$(CC) $(CFLAGS) -fno-pic -nostdinc -I. -c entryother.S
+	$(LD) $(LDFLAGS) -N -e start -Ttext 0x7000 -o bootblockother.o entryother.o
+	$(OBJCOPY) -S -O binary -j .text bootblockother.o entryother
+	$(OBJDUMP) -S bootblockother.o > entryother.asm
 
-ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o
+initcode: initcode.S
+	$(CC) $(CFLAGS) -nostdinc -I. -c initcode.S
+	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o initcode.out initcode.o
+	$(OBJCOPY) -S -O binary initcode.out initcode
+	$(OBJDUMP) -S initcode.o > initcode.asm
 
-ifeq ($(LAB),lock)
-ULIB += $U/statistics.o
-endif
+kernel: $(OBJS) entry.o entryother initcode kernel.ld
+	$(LD) $(LDFLAGS) -T kernel.ld -o kernel entry.o $(OBJS) -b binary initcode entryother
+	$(OBJDUMP) -S kernel > kernel.asm
+	$(OBJDUMP) -t kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernel.sym
 
-_%: %.o $(ULIB) $U/user.ld
-	$(LD) $(LDFLAGS) -T $U/user.ld -o $@ $< $(ULIB)
+# kernelmemfs is a copy of kernel that maintains the
+# disk image in memory instead of writing to a disk.
+# This is not so useful for testing persistent storage or
+# exploring disk buffering implementations, but it is
+# great for testing the kernel on real hardware without
+# needing a scratch disk.
+MEMFSOBJS = $(filter-out ide.o,$(OBJS)) memide.o
+kernelmemfs: $(MEMFSOBJS) entry.o entryother initcode kernel.ld fs.img
+	$(LD) $(LDFLAGS) -T kernel.ld -o kernelmemfs entry.o  $(MEMFSOBJS) -b binary initcode entryother fs.img
+	$(OBJDUMP) -S kernelmemfs > kernelmemfs.asm
+	$(OBJDUMP) -t kernelmemfs | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernelmemfs.sym
+
+tags: $(OBJS) entryother.S _init
+	etags *.S *.c
+
+vectors.S: vectors.pl
+	./vectors.pl > vectors.S
+
+ULIB = ulib.o usys.o printf.o umalloc.o
+
+_%: %.o $(ULIB)
+	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
 	$(OBJDUMP) -S $@ > $*.asm
 	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
 
-$U/usys.S : $U/usys.pl
-	perl $U/usys.pl > $U/usys.S
-
-$U/usys.o : $U/usys.S
-	$(CC) $(CFLAGS) -c -o $U/usys.o $U/usys.S
-
-$U/_forktest: $U/forktest.o $(ULIB)
+_forktest: forktest.o $(ULIB)
 	# forktest has less library code linked in - needs to be small
 	# in order to be able to max out the proc table.
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o
-	$(OBJDUMP) -S $U/_forktest > $U/forktest.asm
+	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o _forktest forktest.o ulib.o usys.o
+	$(OBJDUMP) -S _forktest > forktest.asm
 
-mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
-	gcc $(XCFLAGS) -Werror -Wall -I. -o mkfs/mkfs mkfs/mkfs.c
+mkfs: mkfs.c fs.h
+	gcc -Werror -Wall -o mkfs mkfs.c
 
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
 # that disk image changes after first build are persistent until clean.  More
@@ -176,129 +169,54 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 .PRECIOUS: %.o
 
 UPROGS=\
-	$U/_cat\
-	$U/_echo\
-	$U/_forktest\
-	$U/_grep\
-	$U/_init\
-	$U/_kill\
-	$U/_ln\
-	$U/_ls\
-	$U/_mkdir\
-	$U/_rm\
-	$U/_sh\
-	$U/_stressfs\
-	$U/_usertests\
-	$U/_grind\
-	$U/_wc\
-	$U/_zombie\
-	$U/_logstress\
-	$U/_forphan\
-	$U/_dorphan\
-	$U/_sleep\
-	$U/_sixfive\
-	$U/_memdump\
-	$U/_find\
-	$U/_mytest\
+	_cat\
+	_echo\
+	_forktest\
+	_grep\
+	_init\
+	_kill\
+	_ln\
+	_ls\
+	_mkdir\
+	_rm\
+	_sh\
+	_stressfs\
+	_usertests1\
+	_usertests2\
+	_wc\
+	_zombie\
 
+fs.img: mkfs README $(UPROGS)
+	./mkfs fs.img README $(UPROGS)
 
+-include *.d
 
+clean: 
+	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
+	*.o *.d *.asm *.sym vectors.S bootblock entryother \
+	initcode initcode.out kernel xv6.img fs.img kernelmemfs \
+	xv6memfs.img mkfs .gdbinit \
+	$(UPROGS) \
+	.index.html
 
-ifeq ($(LAB),syscall)
-UPROGS += \
-	$U/_attack\
-	$U/_secret
-endif
+# make a printout
+FILES = $(shell grep -v '^\#' runoff.list)
+PRINT = runoff.list runoff.spec README toc.hdr toc.ftr $(FILES)
 
-ifeq ($(LAB),lock)
-UPROGS += \
-	$U/_stats
-endif
+xv6.pdf: $(PRINT)
+	./runoff
+	ls -l xv6.pdf
 
-ifeq ($(LAB),traps)
-UPROGS += \
-	$U/_call\
-	$U/_bttest
-endif
+print: xv6.pdf
 
-ifeq ($(LAB),lazy)
-UPROGS += \
-	$U/_lazytests
-endif
+clean_print:
+	rm -rf fmt xv6.pdf
 
-ifeq ($(LAB),cow)
-UPROGS += \
-	$U/_cowtest
-endif
+# run in emulators
 
-ifeq ($(LAB),thread)
-UPROGS += \
-	$U/_uthread
-
-$U/uthread_switch.o : $U/uthread_switch.S
-	$(CC) $(CFLAGS) -c -o $U/uthread_switch.o $U/uthread_switch.S
-
-$U/_uthread: $U/uthread.o $U/uthread_switch.o $(ULIB)
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_uthread $U/uthread.o $U/uthread_switch.o $(ULIB)
-	$(OBJDUMP) -S $U/_uthread > $U/uthread.asm
-
-ph: notxv6/ph.c
-	gcc -o ph -g -O2 $(XCFLAGS) notxv6/ph.c -pthread
-
-barrier: notxv6/barrier.c
-	gcc -o barrier -g -O2 $(XCFLAGS) notxv6/barrier.c -pthread
-endif
-
-ifeq ($(LAB),pgtbl)
-UPROGS += \
-	$U/_pgtbltest
-endif
-
-ifeq ($(LAB),lock)
-UPROGS += \
-	$U/_kalloctest\
-	$U/_bcachetest
-endif
-
-ifeq ($(LAB),fs)
-UPROGS += \
-	$U/_bigfile
-endif
-
-
-ifeq ($(LAB),mmap)
-UPROGS += \
-	$U/_mmaptest
-endif
-
-ifeq ($(LAB),net)
-UPROGS += \
-	$U/_nettest
-endif
-
-UEXTRA=
-ifeq ($(LAB),util)
-	UEXTRA += user/findtest.sh
-	UEXTRA += user/sixfive.txt
-	UPROGS += $U/_memdump
-endif
-
-
-fs.img: mkfs/mkfs README $(UEXTRA) $(UPROGS)
-	mkfs/mkfs fs.img README $(UEXTRA) $(UPROGS)
-
-newfs.img: 
-	-mv -f fs.img fs.img.bk
-
--include kernel/*.d user/*.d
-
-clean:
-	rm -rf *.tex *.dvi *.idx *.aux *.log *.ind *.ilg *.dSYM *.zip *.pcap \
-	*/*.o */*.d */*.asm */*.sym \
-	$K/kernel fs.img \
-	mkfs/mkfs .gdbinit \
-        $U/usys.S \
-	$(UPROGS)
+bochs : fs.img xv6.img
+	if [ ! -e .bochsrc ]; then ln -s dot-bochsrc .bochsrc; fi
+	bochs -q
 
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
@@ -307,97 +225,87 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
 ifndef CPUS
-CPUS := 3
+CPUS := 2
 endif
-ifeq ($(LAB),fs)
-CPUS := 1
-endif
+QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA)
 
-FWDPORT1 = $(shell expr `id -u` % 5000 + 25999)
-FWDPORT2 = $(shell expr `id -u` % 5000 + 30999)
+qemu: fs.img xv6.img
+	$(QEMU) -serial mon:stdio $(QEMUOPTS)
 
-QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
-QEMUOPTS += -global virtio-mmio.force-legacy=false
-QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
-QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+qemu-memfs: xv6memfs.img
+	$(QEMU) -drive file=xv6memfs.img,index=0,media=disk,format=raw -smp $(CPUS) -m 256
 
-ifeq ($(LAB),net)
-QEMUOPTS += -netdev user,id=net0,hostfwd=udp::$(FWDPORT1)-:2000,hostfwd=udp::$(FWDPORT2)-:2001 -object filter-dump,id=net0,netdev=net0,file=packets.pcap
-QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
-endif
+qemu-nox: fs.img xv6.img
+	$(QEMU) -nographic $(QEMUOPTS)
 
-# makes a new fs.img
-qemu: check-qemu-version newfs.img $K/kernel fs.img
-	$(QEMU) $(QEMUOPTS)
+.gdbinit: .gdbinit.tmpl
+	cp .gdbinit.tmpl .gdbinit
+	echo "echo + target remote localhost:$(GDBPORT)" >> .gdbinit
+	echo "target remote localhost:$(GDBPORT)" >>.gdbinit
 
-# runs with existing fs.img, if present
-qemu-fs: check-qemu-version $K/kernel fs.img
-	$(QEMU) $(QEMUOPTS)
+launch.json: launch.json.tmpl
+	mkdir -p .vscode
+	cp .gdbinit.tmpl .gdbinit.vscode
+	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $< > .vscode/$@
 
-.gdbinit: .gdbinit.tmpl-riscv
-	sed "s/:1234/:$(GDBPORT)/" < $^ > $@
+qemu-gdb: fs.img xv6.img .gdbinit
+	@echo "*** Now run 'gdb'." 1>&2
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) -S $(QEMUGDB)
 
-qemu-gdb: $K/kernel .gdbinit fs.img
-	@echo "*** Now run 'gdb' in another window." 1>&2
-	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+qemu-nox-gdb: fs.img xv6.img .gdbinit
+	@echo "*** Now run 'gdb'." 1>&2
+	$(QEMU) -nographic $(QEMUOPTS) -S $(QEMUGDB)
 
-ifeq ($(LAB),net)
-# try to generate a unique port for the echo server
-SERVERPORT = $(shell expr `id -u` % 5000 + 25099)
+# CUT HERE
+# prepare dist for students
+# after running make dist, probably want to
+# rename it to rev0 or rev1 or so on and then
+# check in that version.
 
-endif
+EXTRA=\
+	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
+	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
+	printf.c umalloc.c\
+	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
+	.gdbinit.tmpl gdbutil\
 
-##
-##  FOR testing lab grading script
-##
+dist:
+	rm -rf dist
+	mkdir dist
+	for i in $(FILES); \
+	do \
+		grep -v PAGEBREAK $$i >dist/$$i; \
+	done
+	sed '/CUT HERE/,$$d' Makefile >dist/Makefile
+	echo >dist/runoff.spec
+	cp $(EXTRA) dist
 
-ifneq ($(V),@)
-GRADEFLAGS += -v
-endif
+dist-test:
+	rm -rf dist
+	make dist
+	rm -rf dist-test
+	mkdir dist-test
+	cp dist/* dist-test
+	cd dist-test; $(MAKE) print
+	cd dist-test; $(MAKE) bochs || true
+	cd dist-test; $(MAKE) qemu
 
-print-gdbport:
-	@echo $(GDBPORT)
+# update this rule (change rev#) when it is time to
+# make a new revision.
+tar:
+	rm -rf /tmp/xv6
+	mkdir -p /tmp/xv6
+	cp dist/* dist/.gdbinit.tmpl /tmp/xv6
+	(cd /tmp; tar cf - xv6) | gzip >xv6-rev10.tar.gz  # the next one will be 10 (9/17)
 
-grade:
-	@echo $(MAKE) clean
-	@$(MAKE) clean || \
-          (echo "'make clean' failed.  HINT: Do you have another running instance of xv6?" && exit 1)
-	./grade-lab-$(LAB) $(GRADEFLAGS)
+.PHONY: dist-test dist
 
-##
-## FOR submissions
-##
-
-submit-check:
-	@if ! test -d .git; then \
-		echo No .git directory, is this a git repository?; \
-		false; \
-	fi
-	@if test "$$(git symbolic-ref HEAD)" != refs/heads/$(LAB); then \
-		git branch; \
-		read -p "You are not on the $(LAB) branch.  Hand-in the current branch? [y/N] " r; \
-		test "$$r" = y; \
-	fi
-	@if ! git diff-files --quiet || ! git diff-index --quiet --cached HEAD; then \
-		git status -s; \
-		echo; \
-		echo "You have uncomitted changes.  Please commit or stash them."; \
-		false; \
-	fi
-	@if test -n "`git status -s`"; then \
-		git status -s; \
-		read -p "Untracked files will not be handed in.  Continue? [y/N] " r; \
-		test "$$r" = y; \
-	fi
-
-zipball: clean submit-check
-	git archive --verbose --format zip --output lab.zip HEAD
-
-.PHONY: zipball clean grade submit-check check-qemu-version
-
-QEMU_VERSION := $(shell $(QEMU) --version | head -n 1 | sed -E 's/^QEMU emulator version ([0-9]+\.[0-9]+)\..*/\1/')
-check-qemu-version:
-	@if [ "$(shell echo "$(QEMU_VERSION) >= $(MIN_QEMU_VERSION)" | bc)" -eq 0 ]; then \
-		echo "ERROR: Need qemu version >= $(MIN_QEMU_VERSION)"; \
-		exit 1; \
-	fi
+.index.html: .index.md
+	pandoc \
+	    --standalone \
+	    --metadata='pagetitle:Xv6-64 Source Code' \
+	    --variable='keywords:operating system' \
+	    --variable='keywords:unix' \
+	    --variable='highlighting-css: *{font-family:Arial,sans-serif;}' \
+	    -o .index.html \
+	    .index.md
